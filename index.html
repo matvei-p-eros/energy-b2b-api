@@ -149,9 +149,9 @@
                 document.querySelectorAll('.tab-btn')[1].innerText = langData.fix;
 
                 const priceRes = await fetch('https://energy-b2b-api.onrender.com/api/v1/current-price');
-const priceData = await priceRes.json();
-
-const chartRes = await fetch('https://energy-b2b-api.onrender.com/api/v1/forecast-prices');
+                const priceData = await priceRes.json();
+                
+                const chartRes = await fetch('https://energy-b2b-api.onrender.com/api/v1/forecast-prices');
                 const chartData = await chartRes.json();
                 
                 serverData = { current: priceData, forecast: chartData.forecast };
