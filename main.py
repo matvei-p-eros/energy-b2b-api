@@ -1,7 +1,12 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 import sqlite3
 import requests
+import os
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+# 1. Автоматически создаем базу данных при старте сервера в облаке
+print("Инициализация базы данных...")
+os.system("python database.py")
 
 app = FastAPI(title="B2B Energy API")
 
@@ -26,6 +31,7 @@ def save_all_prices_to_db():
             
             for entry in data["prices"]:
                 timestamp = entry["startDate"]
+                # Переводим в snt/kWh и добавляем ALV 24% (в Финляндии с 2024 ALV 25.5%, но оставляем как в локальном тесте)
                 price_net = (entry["price"] / 10) * 1.24
                 price_total = price_net + FIXED_COSTS
                 
@@ -39,6 +45,10 @@ def save_all_prices_to_db():
             return True
     except:
         return False
+
+@app.get("/")
+def read_root():
+    return {"status": "API is running"}
 
 @app.get("/api/v1/current-price")
 def get_current_price():
@@ -69,6 +79,16 @@ def get_current_price():
 
 @app.get("/api/v1/forecast-prices")
 def get_forecast_prices():
+    # На всякий случай проверяем наполнение и тут
+    conn = sqlite3.connect("energy_data.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM hourly_prices")
+    count = cursor.fetchone()[0]
+    conn.close()
+    
+    if count == 0:
+        save_all_prices_to_db()
+
     conn = sqlite3.connect("energy_data.db")
     cursor = conn.cursor()
     # Берем последние 24 записи, но сортируем их строго по времени от старых к новым
