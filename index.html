@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>B2B Älykäs Energianäkymä</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f6f9;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        .tab-btn {
+            background: #e2e8f0;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #4a5568;
+            transition: 0.2s;
+        }
+        .tab-btn.active {
+            background: #3182ce;
+            color: white;
+        }
+        .energy-widget {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            padding: 24px;
+            width: 360px;
+            text-align: center;
+        }
+        .widget-title {
+            font-size: 14px;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 16px;
+        }
+        .price-display {
+            font-size: 36px;
+            font-weight: 800;
+            color: #212529;
+            margin-bottom: 4px;
+        }
+        .price-unit {
+            font-size: 16px;
+            color: #6c757d;
+            font-weight: 400;
+        }
+        .sub-text {
+            font-size: 13px;
+            color: #adb5bd;
+            margin-bottom: 20px;
+            min-height: 36px;
+        }
+        .chart-container {
+            position: relative;
+            margin: 20px 0;
+            height: 150px;
+            width: 100%;
+        }
+        .appliances-list {
+            text-align: left;
+            border-top: 1px solid #dee2e6;
+            padding-top: 16px;
+        }
+        .appliance-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: #495057;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="changeTariff('porssi')"></button>
+        <button class="tab-btn" onclick="changeTariff('kiintea')"></button>
+    </div>
+
+    <div class="energy-widget">
+        <div class="widget-title" id="title-text"></div>
+        <div class="status-badge" id="badge">Ladataan...</div>
+        <div class="price-display" id="price-main">0.00<span class="price-unit"> snt/kWh</span></div>
+        <div class="sub-text" id="sub-info"></div>
+        
+        <div class="chart-container">
+            <canvas id="energyChart"></canvas>
+        </div>
+        
+        <div class="appliances-list">
+            <div class="appliance-item" id="cost-pc"></div>
+            <div class="appliance-item" id="cost-oven"></div>
+            <div class="appliance-item" id="cost-washer"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentTariff = 'porssi';
+        let serverData = null;
+        let chartInstance = null;
+
+        function getWidgetSettings() {
+            const params = new URLSearchParams(window.location.search);
+            return {
+                lang: params.get('lang') || 'fi',
+                theme: params.get('theme') || 'default'
+            };
+        }
+
+        const settings = getWidgetSettings();
+
+        const translations = {
+            fi: { title: "Sähkön hinta nyt", sub: "Sisältää siirron, verot ja ALV:n", pc: "Pelitietokone", oven: "Sähköuuni", washer: "Pesukone", porssi: "Pörssisähkö", fix: "Kiinteä hinta" },
+            en: { title: "Electricity price now", sub: "Includes delivery, taxes and VAT", pc: "Gaming PC", oven: "Electric Oven", washer: "Washing Machine", porssi: "Market Price", fix: "Fixed Price" }
+        };
+
+        async function loadData() {
+            try {
+                applyCorporateTheme(settings.theme);
+                
+                const langData = translations[settings.lang] || translations.fi;
+                document.querySelectorAll('.tab-btn')[0].innerText = langData.porssi;
+                document.querySelectorAll('.tab-btn')[1].innerText = langData.fix;
+
+                const priceRes = await fetch('https://energy-b2b-api.onrender.com/api/v1/current-price');
+const priceData = await priceRes.json();
+
+const chartRes = await fetch('https://energy-b2b-api.onrender.com/api/v1/forecast-prices');
+                const chartData = await chartRes.json();
+                
+                serverData = { current: priceData, forecast: chartData.forecast };
+                updateWidget();
+            } catch (err) {
+                document.getElementById('badge').innerText = "❌";
+                document.getElementById('sub-info').innerText = "Connection error to FastAPI.";
+            }
+        }
+
+        function applyCorporateTheme(theme) {
+            let activeColor = '#3182ce';
+            if (theme === 'sato') activeColor = '#ef7d00';
+            if (theme === 'lumo') activeColor = '#0070f3';
+
+            const style = document.createElement('style');
+            style.innerHTML = `.tab-btn.active { background: ${activeColor} !important; }`;
+            document.head.appendChild(style);
+        }
+
+        function updateWidget() {
+            if (!serverData) return;
+
+            const pNet = serverData.current.price_net_snt;
+            const pTotal = serverData.current.price_total_snt;
+            const langData = translations[settings.lang] || translations.fi;
+            
+            const powerPC = 0.4, powerOven = 2.0, powerWasher = 1.8;
+            let finalPrice = pTotal;
+
+            if (currentTariff === 'porssi') {
+                document.getElementById('title-text').innerText = langData.title;
+                document.getElementById('price-main').innerHTML = `${pTotal.toFixed(2)}<span class="price-unit"> snt/kWh</span>`;
+                document.getElementById('sub-info').innerText = langData.sub;
+                
+                const badge = document.getElementById('badge');
+                if (pNet < 5.0) {
+                    badge.innerText = settings.lang === 'fi' ? "🟢 HALPAA" : "🟢 CHEAP"; 
+                    badge.style.backgroundColor = "#e8f5e9"; badge.style.color = "#2e7d32";
+                } else if (pNet <= 12.0) {
+                    badge.innerText = settings.lang === 'fi' ? "🟡 NORMAALI" : "🟡 NORMAL"; 
+                    badge.style.backgroundColor = "#fff3e0"; badge.style.color = "#f57c00";
+                } else {
+                    badge.innerText = settings.lang === 'fi' ? "🔴 KALLISTA" : "🔴 EXPENSIVE"; 
+                    badge.style.backgroundColor = "#ffebee"; badge.style.color = "#c62828";
+                }
+            } else {
+                finalPrice = 12.00 + 8.50;
+                document.getElementById('title-text').innerText = settings.lang === 'fi' ? "Ympäristövaikutus nyt" : "Eco Impact Now";
+                document.getElementById('price-main').innerHTML = `${finalPrice.toFixed(2)}<span class="price-unit"> snt/kWh</span>`;
+                
+                const badge = document.getElementById('badge');
+                if (pNet < 6.0) {
+                    badge.innerText = settings.lang === 'fi' ? "🍃 PUHDAS ENERGIA" : "🍃 CLEAN ENERGY"; 
+                    badge.style.backgroundColor = "#c8e6c9"; badge.style.color = "#1b5e20";
+                    document.getElementById('sub-info').innerText = settings.lang === 'fi' ? "Verkossa on paljon uusiutuvaa energiaa." : "High share of renewable energy in the grid.";
+                } else {
+                    badge.innerText = settings.lang === 'fi' ? "⚠️ KORKEA KUORMITUS" : "⚠️ HIGH LOAD"; 
+                    badge.style.backgroundColor = "#ffe0b2"; badge.style.color = "#e65100";
+                    document.getElementById('sub-info').innerText = settings.lang === 'fi' ? "Verkko kuormittunut. Säästä ympäristöä." : "Grid high load. Save environment.";
+                }
+            }
+
+            document.getElementById('cost-pc').innerHTML = `<span>💻 ${langData.pc} (1h)</span><b>${((finalPrice * powerPC) / 100).toFixed(2)} €</b>`;
+            document.getElementById('cost-oven').innerHTML = `<span>🍕 ${langData.oven} (1h)</span><b>${((finalPrice * powerOven) / 100).toFixed(2)} €</b>`;
+            document.getElementById('cost-washer').innerHTML = `<span>🧺 ${langData.washer} (1h)</span><b>${((finalPrice * powerWasher) / 100).toFixed(2)} €</b>`;
+
+            buildChart();
+        }
+
+function buildChart() {
+            if (!serverData) return;
+            const ctx = document.getElementById('energyChart').getContext('2d');
+            
+            // Просто вырезаем час "HH:MM" из строки даты, так как бэкенд уже прислал всё по порядку
+            const labels = serverData.forecast.map(item => {
+                return item.raw_date.split('T')[1].substring(0, 5);
+            });
+
+            const dataValues = serverData.forecast.map(item => item.price);
+
+            let activeColor = '#3182ce';
+            if (settings.theme === 'sato') activeColor = '#ef7d00';
+            if (settings.theme === 'lumo') activeColor = '#0070f3';
+
+            if (chartInstance) chartInstance.destroy();
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'snt/kWh',
+                        data: dataValues,
+                        borderColor: activeColor,
+                        backgroundColor: activeColor + '1A',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { maxTicksLimit: 6, font: { size: 10 } } },
+                        y: { grid: { color: '#edf2f7' }, ticks: { font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+        loadData();
+    </script>
+</body>
+</html>
