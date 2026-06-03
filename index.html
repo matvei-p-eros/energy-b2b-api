@@ -6,139 +6,241 @@
     <title>B2B Älykäs Energianäkymä</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        :root {
+            --primary-color: #3182ce;
+            --bg-badge: #e6fffa;
+            --text-badge: #234e52;
+        }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f4f6f9;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f7fafc;
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
             margin: 0;
-            padding: 20px;
         }
-        .tabs {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 15px;
-        }
-        .tab-btn {
-            background: #e2e8f0;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            color: #4a5568;
-            transition: 0.2s;
-        }
-        .tab-btn.active {
-            background: #3182ce;
-            color: white;
-        }
-        .energy-widget {
+        .widget-card {
             background: white;
-            border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            border-radius: 24px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            width: 380px;
             padding: 24px;
-            width: 360px;
+            box-sizing: border-box;
             text-align: center;
         }
-        .widget-title {
-            font-size: 14px;
-            color: #6c757d;
-            text-transform: uppercase;
+        .tabs-container {
+            display: flex;
+            background: #edf2f7;
+            padding: 4px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+        }
+        .tab-btn {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 10px;
+            font-weight: 600;
+            border-radius: 10px;
+            cursor: pointer;
+            color: #4a5568;
+            transition: all 0.2s;
+        }
+        .tab-btn.active {
+            background: white;
+            color: #2d3748;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .title {
+            font-size: 13px;
             letter-spacing: 1px;
+            text-transform: uppercase;
+            color: #a0aec0;
             margin-bottom: 12px;
         }
-        .status-badge {
+        .badge {
             display: inline-block;
-            padding: 8px 16px;
+            background: var(--bg-badge);
+            color: var(--text-badge);
+            padding: 6px 16px;
             border-radius: 20px;
             font-weight: bold;
-            font-size: 16px;
-            margin-bottom: 16px;
+            font-size: 14px;
+            margin-bottom: 20px;
         }
         .price-display {
-            font-size: 36px;
+            font-size: 42px;
             font-weight: 800;
-            color: #212529;
+            color: #1a202c;
             margin-bottom: 4px;
         }
-        .price-unit {
+        .price-display span {
             font-size: 16px;
-            color: #6c757d;
-            font-weight: 400;
+            font-weight: 500;
+            color: #718096;
         }
-        .sub-text {
+        .sub-info {
             font-size: 13px;
-            color: #adb5bd;
-            margin-bottom: 20px;
-            min-height: 36px;
+            color: #a0aec0;
+            margin-bottom: 24px;
         }
         .chart-container {
             position: relative;
-            margin: 20px 0;
             height: 150px;
-            width: 100%;
+            margin-bottom: 24px;
+        }
+        .fixed-container {
+            display: none;
+            height: 150px;
+            margin-bottom: 24px;
+            background: #f7fafc;
+            border: 2px dashed #e2e8f0;
+            border-radius: 16px;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #4a5568;
+            padding: 16px;
+            box-sizing: border-box;
+        }
+        .fixed-title {
+            font-weight: 700;
+            font-size: 16px;
+            margin-bottom: 6px;
+        }
+        .fixed-desc {
+            font-size: 12px;
+            color: #718096;
+            line-height: 1.4;
         }
         .appliances-list {
-            text-align: left;
-            border-top: 1px solid #dee2e6;
+            border-top: 1px solid #edf2f7;
             padding-top: 16px;
+            text-align: left;
         }
         .appliance-item {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 10px;
+            align-items: center;
+            margin-bottom: 12px;
             font-size: 14px;
-            color: #495057;
+            color: #4a5568;
+        }
+        .appliance-name {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .appliance-cost {
+            font-weight: 700;
+            color: #1a202c;
         }
     </style>
 </head>
 <body>
 
-    <div class="tabs">
-        <button class="tab-btn active" onclick="changeTariff('porssi')"></button>
-        <button class="tab-btn" onclick="changeTariff('kiintea')"></button>
-    </div>
+    <div class="widget-card">
+        <div class="tabs-container">
+            <button class="tab-btn active" onclick="switchTab('porssi')">Pörssisähkö</button>
+            <button class="tab-btn" onclick="switchTab('kiinteä')">Kiinteä hinta</button>
+        </div>
 
-    <div class="energy-widget">
-        <div class="widget-title" id="title-text"></div>
-        <div class="status-badge" id="badge">Ladataan...</div>
-        <div class="price-display" id="price-main">0.00<span class="price-unit"> snt/kWh</span></div>
-        <div class="sub-text" id="sub-info"></div>
-        
-        <div class="chart-container">
+        <div id="widget-main-title" class="title">Sähkön hinta nyt</div>
+        <div id="badge" class="badge">● HALPAA</div>
+
+        <div class="price-display">
+            <span id="price-value">0.00</span> <span>snt/kWh</span>
+        </div>
+        <div id="sub-info" class="sub-info">Sisältää siirron, verot ja ALV:n</div>
+
+        <div id="chart-box" class="chart-container">
             <canvas id="energyChart"></canvas>
         </div>
-        
+
+        <div id="fixed-box" class="fixed-container">
+            <div id="fixed-t" class="fixed-title">Sopimushinta voimassa</div>
+            <div id="fixed-d" class="fixed-desc">Kulutuksesi lasketaan kiinteän tariffin mukaan. Hintariskitön valinta leasing-sopimukseesi.</div>
+        </div>
+
         <div class="appliances-list">
-            <div class="appliance-item" id="cost-pc"></div>
-            <div class="appliance-item" id="cost-oven"></div>
-            <div class="appliance-item" id="cost-washer"></div>
+            <div class="appliance-item">
+                <span class="appliance-name">💻 <span id="app-pc">Pelitietokone (1h)</span></span>
+                <span class="appliance-cost" id="cost-pc">0.00 €</span>
+            </div>
+            <div class="appliance-item">
+                <span class="appliance-name">🍕 <span id="app-oven">Sähköuuni (1h)</span></span>
+                <span class="appliance-cost" id="cost-oven">0.00 €</span>
+            </div>
+            <div class="appliance-item">
+                <span class="appliance-name">🧺 <span id="app-wash">Pesukone (1h)</span></span>
+                <span class="appliance-cost" id="cost-wash">0.00 €</span>
+            </div>
         </div>
     </div>
 
     <script>
-        let currentTariff = 'porssi';
-        let serverData = null;
-        let chartInstance = null;
-
-        function getWidgetSettings() {
-            const params = new URLSearchParams(window.location.search);
-            return {
-                lang: params.get('lang') || 'fi',
-                theme: params.get('theme') || 'default'
-            };
-        }
-
-        const settings = getWidgetSettings();
+        const urlParams = new URLSearchParams(window.location.search);
+        const settings = {
+            theme: urlParams.get('theme') || 'lumo',
+            lang: urlParams.get('lang') || 'fi'
+        };
 
         const translations = {
-            fi: { title: "Sähkön hinta nyt", sub: "Sisältää siirron, verot ja ALV:n", pc: "Pelitietokone", oven: "Sähköuuni", washer: "Pesukone", porssi: "Pörssisähkö", fix: "Kiinteä hinta" },
-            en: { title: "Electricity price now", sub: "Includes delivery, taxes and VAT", pc: "Gaming PC", oven: "Electric Oven", washer: "Washing Machine", porssi: "Market Price", fix: "Fixed Price" }
+            fi: {
+                porssi: "Pörssisähkö",
+                fix: "Kiinteä hinta",
+                titlePorssi: "Sähkön hinta nyt",
+                titleFix: "Sopimushinta",
+                subInfo: "Sisältää siirron, verot ja ALV:n",
+                subInfoFix: "Määräaikainen kumppanuushinta",
+                halpaa: "● HALPAA",
+                kallista: "● KALLISTA",
+                fixedTitle: "Sopimushinta voimassa",
+                fixedDesc: "Kulutuksesi lasketaan kiinteän tariffin mukaan. Hintariskitön valinta leasing-sopimukseesi.",
+                pc: "Pelitietokone (1h)",
+                oven: "Sähköuuni (1h)",
+                wash: "Pesukone (1h)"
+            },
+            en: {
+                porssi: "Market Price",
+                fix: "Fixed Price",
+                titlePorssi: "Current Price",
+                titleFix: "Contract Price",
+                subInfo: "Includes delivery, taxes and VAT",
+                subInfoFix: "Fixed rate partnership price",
+                halpaa: "● CHEAP",
+                kallista: "● EXPENSIVE",
+                fixedTitle: "Fixed rate active",
+                fixedDesc: "Your consumption is calculated on a secure fixed rate. No market volatility risks.",
+                pc: "Gaming PC (1h)",
+                oven: "Electric Oven (1h)",
+                wash: "Washing Machine (1h)"
+            }
         };
+
+        let serverData = null;
+        let chartInstance = null;
+        let currentTab = 'porssi';
+        const FIXED_PRICE_VALUE = 12.50; // Задаем тестовую фиксированную цену (snt/kWh)
+
+        function applyCorporateTheme(theme) {
+            const root = document.documentElement;
+            if (theme === 'sato') {
+                root.style.setProperty('--primary-color', '#ef7d00');
+                root.style.setProperty('--bg-badge', '#fff3e0');
+                root.style.setProperty('--text-badge', '#e65100');
+            } else {
+                root.style.setProperty('--primary-color', '#0070f3');
+                root.style.setProperty('--bg-badge', '#e6fffa');
+                root.style.setProperty('--text-badge', '#234e52');
+            }
+            
+            const activeTabBtn = document.querySelector('.tab-btn.active');
+            if (activeTabBtn) {
+                activeTabBtn.style.borderBottom = `3px solid var(--primary-color)`;
+            }
+        }
 
         async function loadData() {
             try {
@@ -147,6 +249,12 @@
                 const langData = translations[settings.lang] || translations.fi;
                 document.querySelectorAll('.tab-btn')[0].innerText = langData.porssi;
                 document.querySelectorAll('.tab-btn')[1].innerText = langData.fix;
+                
+                document.getElementById('app-pc').innerText = langData.pc;
+                document.getElementById('app-oven').innerText = langData.oven;
+                document.getElementById('app-wash').innerText = langData.wash;
+                document.getElementById('fixed-t').innerText = langData.fixedTitle;
+                document.getElementById('fixed-d').innerText = langData.fixedDesc;
 
                 const priceRes = await fetch('https://energy-b2b-api.onrender.com/api/v1/current-price');
                 const priceData = await priceRes.json();
@@ -162,80 +270,70 @@
             }
         }
 
-        function applyCorporateTheme(theme) {
-            let activeColor = '#3182ce';
-            if (theme === 'sato') activeColor = '#ef7d00';
-            if (theme === 'lumo') activeColor = '#0070f3';
-
-            const style = document.createElement('style');
-            style.innerHTML = `.tab-btn.active { background: ${activeColor} !important; }`;
-            document.head.appendChild(style);
-        }
-
         function updateWidget() {
             if (!serverData) return;
-
-            const pNet = serverData.current.price_net_snt;
-            const pTotal = serverData.current.price_total_snt;
             const langData = translations[settings.lang] || translations.fi;
-            
-            const powerPC = 0.4, powerOven = 2.0, powerWasher = 1.8;
-            let finalPrice = pTotal;
 
-            if (currentTariff === 'porssi') {
-                document.getElementById('title-text').innerText = langData.title;
-                document.getElementById('price-main').innerHTML = `${pTotal.toFixed(2)}<span class="price-unit"> snt/kWh</span>`;
-                document.getElementById('sub-info').innerText = langData.sub;
-                
-                const badge = document.getElementById('badge');
-                if (pNet < 5.0) {
-                    badge.innerText = settings.lang === 'fi' ? "🟢 HALPAA" : "🟢 CHEAP"; 
-                    badge.style.backgroundColor = "#e8f5e9"; badge.style.color = "#2e7d32";
-                } else if (pNet <= 12.0) {
-                    badge.innerText = settings.lang === 'fi' ? "🟡 NORMAALI" : "🟡 NORMAL"; 
-                    badge.style.backgroundColor = "#fff3e0"; badge.style.color = "#f57c00";
+            let activePrice = 0;
+
+            if (currentTab === 'porssi') {
+                activePrice = serverData.current.price_total_snt;
+                document.getElementById('widget-main-title').innerText = langData.titlePorssi;
+                document.getElementById('sub-info').innerText = langData.subInfo;
+                document.getElementById('badge').style.display = "inline-block";
+                document.getElementById('chart-box').style.display = "block";
+                document.getElementById('fixed-box').style.display = "none";
+
+                if (activePrice < 12) {
+                    document.getElementById('badge').innerText = langData.halpaa;
+                    document.getElementById('badge').style.background = settings.theme === 'sato' ? '#fff3e0' : '#e6fffa';
                 } else {
-                    badge.innerText = settings.lang === 'fi' ? "🔴 KALLISTA" : "🔴 EXPENSIVE"; 
-                    badge.style.backgroundColor = "#ffebee"; badge.style.color = "#c62828";
+                    document.getElementById('badge').innerText = langData.kallista;
+                    document.getElementById('badge').style.background = '#fed7d7';
                 }
+                buildChart();
             } else {
-                finalPrice = 12.00 + 8.50;
-                document.getElementById('title-text').innerText = settings.lang === 'fi' ? "Ympäristövaikutus nyt" : "Eco Impact Now";
-                document.getElementById('price-main').innerHTML = `${finalPrice.toFixed(2)}<span class="price-unit"> snt/kWh</span>`;
-                
-                const badge = document.getElementById('badge');
-                if (pNet < 6.0) {
-                    badge.innerText = settings.lang === 'fi' ? "🍃 PUHDAS ENERGIA" : "🍃 CLEAN ENERGY"; 
-                    badge.style.backgroundColor = "#c8e6c9"; badge.style.color = "#1b5e20";
-                    document.getElementById('sub-info').innerText = settings.lang === 'fi' ? "Verkossa on paljon uusiutuvaa energiaa." : "High share of renewable energy in the grid.";
-                } else {
-                    badge.innerText = settings.lang === 'fi' ? "⚠️ KORKEA KUORMITUS" : "⚠️ HIGH LOAD"; 
-                    badge.style.backgroundColor = "#ffe0b2"; badge.style.color = "#e65100";
-                    document.getElementById('sub-info').innerText = settings.lang === 'fi' ? "Verkko kuormittunut. Säästä ympäristöä." : "Grid high load. Save environment.";
-                }
+                // Логика для фиксированной цены
+                activePrice = FIXED_PRICE_VALUE;
+                document.getElementById('widget-main-title').innerText = langData.titleFix;
+                document.getElementById('sub-info').innerText = langData.subInfoFix;
+                document.getElementById('badge').style.display = "none";
+                document.getElementById('chart-box').style.display = "none";
+                document.getElementById('fixed-box').style.display = "flex";
             }
 
-            document.getElementById('cost-pc').innerHTML = `<span>💻 ${langData.pc} (1h)</span><b>${((finalPrice * powerPC) / 100).toFixed(2)} €</b>`;
-            document.getElementById('cost-oven').innerHTML = `<span>🍕 ${langData.oven} (1h)</span><b>${((finalPrice * powerOven) / 100).toFixed(2)} €</b>`;
-            document.getElementById('cost-washer').innerHTML = `<span>🧺 ${langData.washer} (1h)</span><b>${((finalPrice * powerWasher) / 100).toFixed(2)} €</b>`;
+            document.getElementById('price-value').innerText = activePrice.toFixed(2);
 
-            buildChart();
+            // Пересчет калькулятора
+            document.getElementById('cost-pc').innerText = ((0.4 * activePrice) / 100).toFixed(2) + " €";
+            document.getElementById('cost-oven').innerText = ((2.0 * activePrice) / 100).toFixed(2) + " €";
+            document.getElementById('cost-wash').innerText = ((1.8 * activePrice) / 100).toFixed(2) + " €";
         }
 
-function buildChart() {
-            if (!serverData) return;
+        function switchTab(tab) {
+            currentTab = tab;
+            const buttons = document.querySelectorAll('.tab-btn');
+            if (tab === 'porssi') {
+                buttons[0].classList.add('active');
+                buttons[1].classList.remove('active');
+            } else {
+                buttons[0].classList.remove('active');
+                buttons[1].classList.add('active');
+            }
+            updateWidget();
+        }
+
+        function buildChart() {
+            if (!serverData || currentTab !== 'porssi') return;
             const ctx = document.getElementById('energyChart').getContext('2d');
             
-            // Просто вырезаем час "HH:MM" из строки даты, так как бэкенд уже прислал всё по порядку
             const labels = serverData.forecast.map(item => {
                 return item.raw_date.split('T')[1].substring(0, 5);
             });
-
             const dataValues = serverData.forecast.map(item => item.price);
 
-            let activeColor = '#3182ce';
+            let activeColor = '#0070f3';
             if (settings.theme === 'sato') activeColor = '#ef7d00';
-            if (settings.theme === 'lumo') activeColor = '#0070f3';
 
             if (chartInstance) chartInstance.destroy();
 
@@ -244,7 +342,6 @@ function buildChart() {
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: 'snt/kWh',
                         data: dataValues,
                         borderColor: activeColor,
                         backgroundColor: activeColor + '1A',
@@ -259,12 +356,13 @@ function buildChart() {
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        x: { grid: { display: false }, ticks: { maxTicksLimit: 6, font: { size: 10 } } },
+                        x: { grid: { display: false }, ticks: { maxTicksLimit: 5, font: { size: 10 } } },
                         y: { grid: { color: '#edf2f7' }, ticks: { font: { size: 10 } } }
                     }
                 }
             });
         }
+
         loadData();
     </script>
 </body>
